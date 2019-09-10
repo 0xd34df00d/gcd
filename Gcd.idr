@@ -67,19 +67,19 @@ sumDecreasing Z (S n) (LTESucc _) = rewrite minusZeroRight n in lteRefl
 sumDecreasing (S m) (S n) (LTESucc prf) = let rec = sumDecreasing m n prf
                                           in rewrite sym $ plusSuccRightSucc m n in LTESucc (LTESucc $ lteSuccLeft rec)
 
-data ProvenEuclidStep : EuclidState -> Type where
-  MkPE : (es : EuclidState) -> (d : Nat) -> (prf : CommonDivisor d (mES es) (nES es)) -> ProvenEuclidStep es
+data VerifiedEuclidStep : EuclidState -> Type where
+  MkPE : (es : EuclidState) -> (d : Nat) -> (prf : CommonDivisor d (mES es) (nES es)) -> VerifiedEuclidStep es
 
 inductCommonDiv : (prf : m `LTE` n) -> CommonDivisor d m (n `minus` m) -> CommonDivisor d m n
 inductCommonDiv prf (MkCommonDivisor d m (minus n m) prf_m prf_n) = MkCommonDivisor d m n prf_m $ divCombine prf prf_m prf_n
 
-inductPERight : ProvenEuclidStep (MkES m (n `minus` m) prf) -> ProvenEuclidStep (MkES m n prf')
+inductPERight : VerifiedEuclidStep (MkES m (n `minus` m) prf) -> VerifiedEuclidStep (MkES m n prf')
 inductPERight {prf'} (MkPE (MkES m (n `minus` m) prf) d cdPrf) = MkPE (MkES m n _) d $ inductCommonDiv prf' cdPrf
 
-inductPELeft : ProvenEuclidStep (MkES (n `minus` m) m prf) -> ProvenEuclidStep (MkES m n prf')
+inductPELeft : VerifiedEuclidStep (MkES (n `minus` m) m prf) -> VerifiedEuclidStep (MkES m n prf')
 inductPELeft {prf'} (MkPE (MkES (n `minus` m) m prf) d cdPrf) = MkPE (MkES m n _) d $ inductCommonDiv prf' $ commonDivSym cdPrf
 
-euclidStep : (es : EuclidState) -> (cont : (es' : EuclidState) -> es' `Smaller` es -> ProvenEuclidStep es') -> ProvenEuclidStep es
+euclidStep : (es : EuclidState) -> (cont : (es' : EuclidState) -> es' `Smaller` es -> VerifiedEuclidStep es') -> VerifiedEuclidStep es
 euclidStep (MkES Z n mLess) cont = MkPE (MkES Z n mLess) n (commonDivRightZ n)
 euclidStep (MkES (S m) n mLess) cont =
   case isLTE (S m) (n `minus` S m) of
@@ -89,11 +89,11 @@ euclidStep (MkES (S m) n mLess) cont =
                          rec = cont (MkES _ _ prf) (rewrite plusCommutative (n `minus` S m) (S m) in smallerPrf)
                      in inductPELeft rec
 
-euclid' : (es : EuclidState) -> ProvenEuclidStep es
+euclid' : (es : EuclidState) -> VerifiedEuclidStep es
 euclid' = sizeInd euclidStep
 
 {-
-euclid : (m, n : Nat) -> ProvenEuclidStep m n
+euclid : (m, n : Nat) -> VerifiedEuclidStep m n
 euclid m n = case isLTE m n of
                   Yes prf   => euclid' m n $ MkES m n prf
                   No contra => euclid' m n $ MkES n m $ notLte _ _ contra
