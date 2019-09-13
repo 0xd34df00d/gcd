@@ -137,18 +137,18 @@ inductPELeft : VerifiedEuclidStep (MkES (n `minus` m) m _ _) -> VerifiedEuclidSt
 inductPELeft {prf'} (MkVES (MkES (n `minus` m) m _ _) d cdPrf gPrf) = MkVES (MkES m n _ _) d (inductCommonDiv prf' $ commonDivSym cdPrf) (inductGreatestDiv $ greatestDivSym gPrf)
 
 ltImpliesLtZero : (a `LT` b) -> 0 `LT` b
+ltImpliesLtZero (LTESucc _) = LTESucc LTEZero
 
 euclidStep : (es : EuclidState) -> (cont : (es' : EuclidState) -> es' `Smaller` es -> VerifiedEuclidStep es') -> VerifiedEuclidStep es
-euclidStep (MkES Z n mLess zeroLTnES) cont = MkVES (MkES Z n mLess zeroLTnES) n (commonDivRightZ n) ?wut
+euclidStep (MkES Z (S n) mLess zeroLTnES) cont = MkVES (MkES Z (S n) mLess zeroLTnES) (S n) (commonDivRightZ (S n)) (greatestDivRightZ n)
 euclidStep (MkES (S m) n mLess _) cont =
   case isLTE (S (S m)) (n `minus` S m) of
        Yes prf    => inductPERight $ cont (MkES _ _ (ltWeaken prf) (ltImpliesLtZero prf)) $ sumDecreasing _ _ mLess
-       No contra  => ?wut2 {-let prf = ltWeaken $ notLte _ _ contra
+       No contra  => let LTESucc prf = notLte _ _ contra
                          smallerPrf = sumDecreasing _ _ mLess
-                         rec = cont (MkES _ _ prf ?wut) (rewrite plusCommutative (n `minus` S m) (S m) in smallerPrf)
-                         in inductPELeft rec-}
+                         rec = cont (MkES _ _ prf (LTESucc LTEZero)) (rewrite plusCommutative (n `minus` S m) (S m) in smallerPrf)
+                     in inductPELeft rec
 
-{-
 euclid' : (es : EuclidState) -> VerifiedEuclidStep es
 euclid' = sizeInd euclidStep
 
@@ -157,5 +157,4 @@ euclid : (m, n : Nat) -> VerifiedEuclidStep m n
 euclid m n = case isLTE m n of
                   Yes prf   => euclid' m n $ MkES m n prf
                   No contra => euclid' m n $ MkES n m $ notLte _ _ contra
-                  -}
                   -}
