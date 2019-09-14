@@ -5,8 +5,7 @@ import Syntax.PreorderReasoning
 %default total
 
 notLte : (x, y : Nat) -> (contra : LTE x y -> Void) -> y `LT` x
-notLte Z Z contra = void $ contra LTEZero
-notLte Z (S k) contra = absurd $ contra LTEZero
+notLte Z _ contra = void $ contra LTEZero
 notLte (S k) Z contra = LTESucc LTEZero
 notLte (S k) (S j) contra = LTESucc $ notLte k j (\pi_arg => contra $ LTESucc pi_arg)
 
