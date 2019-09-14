@@ -92,12 +92,6 @@ greatestDivRightZ n = MkGD (S n) 0 (S n) (prfFun n)
 greatestDivSym : GreatestDivisor d m n -> GreatestDivisor d n m
 greatestDivSym (MkGD d m n f) = MkGD d n m $ \d', cd => f d' $ commonDivSym cd
 
-data Gcd : (d, m, n : Nat) -> Type where
-  MkGcd : (d, m, n : Nat) ->
-          (commonDivPrf : CommonDivisor d m n) ->
-          (greatest : GreatestDivisor d m n) ->
-          Gcd d m n
-
 record EuclidState where
   constructor MkES
   mES, nES : Nat
@@ -152,9 +146,31 @@ euclidStep (MkES (S m) n mLess _) cont =
 euclid' : (es : EuclidState) -> VerifiedEuclidStep es
 euclid' = sizeInd euclidStep
 
-{-
-euclid : (m, n : Nat) -> VerifiedEuclidStep m n
-euclid m n = case isLTE m n of
-                  Yes prf   => euclid' m n $ MkES m n prf
-                  No contra => euclid' m n $ MkES n m $ notLte _ _ contra
-                  -}
+data Gcd : (d, m, n : Nat) -> Type where
+  MkGcd : (d, m, n : Nat) ->
+          (commonDivPrf : CommonDivisor d m n) ->
+          (greatestPrf : GreatestDivisor d m n) ->
+          Gcd d m n
+
+gcdSym : Gcd d m n -> Gcd d n m
+gcdSym (MkGcd d m n commonDivPrf greatestPrf) = MkGcd d n m (commonDivSym commonDivPrf) (greatestDivSym greatestPrf)
+
+verifiedGcdSym : (d ** Gcd d m n) -> (d ** Gcd d n m)
+verifiedGcdSym (d ** gcdPrf) = (d ** gcdSym gcdPrf)
+
+deduceLte : Either (0 `LT` m) (0 `LT` n) -> m `LTE` n -> 0 `LT` n
+deduceLte (Left l) m_lte_n = l `lteTransitive` m_lte_n
+deduceLte (Right r) _ = r
+
+euclid : (m, n : Nat) -> Either (0 `LT` m) (0 `LT` n) -> (d ** Gcd d m n)
+euclid m n eitherNonZero =
+  case isLTE m n of
+       Yes prf   => let es = MkES m n prf (deduceLte eitherNonZero prf)
+                        eqPrf = the (m = mES es) Refl
+                    in unwrap es $ euclid' es
+       No contra => let prf = ltWeaken $ notLte _ _ contra
+                        es = MkES n m prf (deduceLte (mirror eitherNonZero) prf)
+                    in verifiedGcdSym $ unwrap es $ euclid' es
+  where
+    unwrap : (es : EuclidState) -> VerifiedEuclidStep es -> (d ** Gcd d (mES es) (nES es))
+    unwrap es (MkVES es d cdPrf gPrf) = (d ** MkGcd d (mES es) (nES es) cdPrf gPrf)
