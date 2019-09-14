@@ -165,7 +165,6 @@ euclid : (m, n : Nat) -> Either (0 `LT` m) (0 `LT` n) -> (d ** Gcd d m n)
 euclid m n eitherNonZero =
   case isLTE m n of
        Yes prf   => let es = MkES m n prf (deduceLte eitherNonZero prf)
-                        eqPrf = the (m = mES es) Refl
                     in unwrap es $ euclid' es
        No contra => let prf = ltWeaken $ notLte _ _ contra
                         es = MkES n m prf (deduceLte (mirror eitherNonZero) prf)
