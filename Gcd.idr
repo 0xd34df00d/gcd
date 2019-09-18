@@ -1,8 +1,8 @@
-module Gcd
-
+import Data.String
 import Syntax.PreorderReasoning
 
 %default total
+%access public export
 
 notLte : (x, y : Nat) -> (contra : LTE x y -> Void) -> y `LT` x
 notLte Z _ contra = void $ contra LTEZero
@@ -172,3 +172,25 @@ euclid m n eitherNonZero =
   where
     unwrap : (es : EuclidState) -> VerifiedEuclidStep es -> (d ** Gcd d (mES es) (nES es))
     unwrap es (MkVES es d cdPrf gPrf) = (d ** MkGcd d (mES es) (nES es) cdPrf gPrf)
+
+validate : (m, n : Nat) -> Dec (Either (0 `LT` m) (0 `LT` n))
+validate m n = case (1 `isLTE` m, 1 `isLTE` n) of
+                    (Yes prf, _) => Yes (Left prf)
+                    (No _, Yes prf) => Yes (Right prf)
+                    (No c1, No c2) => No $ \pi_arg => case pi_arg of
+                                                           Left l => c1 l
+                                                           Right r => c2 r
+
+partial
+euclidDumb : (m, n : Nat) -> Nat
+euclidDumb Z n = n
+euclidDumb (S m) n = if S m < (n `minus` S m) then euclidDumb (S m) (n `minus` S m) else euclidDumb (n `minus` S m) (S m)
+
+partial
+main : IO ()
+main = do
+  [_, mStr, nStr] <- getArgs | _ => putStrLn "wrong arguments count"
+  let Just m = the (Maybe Nat) (parsePositive mStr) | _ => putStr "first argument should be a non-negative integer"
+  let Just n = the (Maybe Nat) (parsePositive nStr) | _ => putStr "second argument should be a non-negative integer"
+  let Yes prf = validate m n | _ => putStr "at least one of the numbers must be positive"
+  printLn $ fst $ euclid m n prf
