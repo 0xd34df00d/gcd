@@ -1,3 +1,4 @@
+import Data.Erased
 import Data.String
 import Syntax.PreorderReasoning
 
@@ -132,18 +133,38 @@ inductPELeft {prf'} (MkVES (MkES (n `minus` m) m _ _) d cdPrf gPrf) = MkVES (MkE
 ltImpliesLtZero : (a `LT` b) -> 0 `LT` b
 ltImpliesLtZero (LTESucc _) = LTESucc LTEZero
 
-euclidStep : (es : EuclidState) -> (cont : (es' : EuclidState) -> es' `Smaller` es -> VerifiedEuclidStep es') -> VerifiedEuclidStep es
+euclidStep : (es : EuclidState) -> (cont : (es' : EuclidState) -> Erased (es' `Smaller` es) -> VerifiedEuclidStep es') -> VerifiedEuclidStep es
 euclidStep (MkES Z (S n) mLess zeroLTnES) cont = MkVES (MkES Z (S n) mLess zeroLTnES) (S n) (commonDivRightZ (S n)) (greatestDivRightZ n)
 euclidStep (MkES (S m) n mLess _) cont =
   case isLTE (S (S m)) (n `minus` S m) of
-       Yes prf    => inductPERight $ cont (MkES _ _ (ltWeaken prf) (ltImpliesLtZero prf)) $ sumDecreasing _ _ mLess
+       Yes prf => inductPERight $
+        cont
+            (MkES _ _ (ltWeaken prf) (ltImpliesLtZero prf))
+            (Erase $ sumDecreasing _ _ mLess)
        No contra  => let LTESucc prf = notLte _ _ contra
                          smallerPrf = sumDecreasing _ _ mLess
-                         rec = cont (MkES _ _ prf (LTESucc LTEZero)) (rewrite plusCommutative (n `minus` S m) (S m) in smallerPrf)
+                         rec = cont (MkES _ _ prf (LTESucc LTEZero)) (Erase (rewrite plusCommutative (n `minus` S m) (S m) in smallerPrf))
                      in inductPELeft rec
 
+sizeAccessible' : Sized a => (x : a) -> Accessible (\x, y => Erased $ Smaller x y) x
+sizeAccessible' x = Access (acc $ size x)
+  where
+    acc : (sizeX : Nat) -> (y : a) -> Erased (size y `LT` sizeX)
+        -> Accessible (\x, y => Erased $ Smaller x y) y
+    acc (S x') y (Erase $ LTESucc yLEx')
+        = Access (\z, zLTy => acc x' z (Erase $ lteTransitive (unerase zLTy) yLEx'))
+    acc Z _ (Erase LTEZero) impossible
+    acc Z _ (Erase (LTESucc _)) impossible
+
+sizeInd' : Sized a
+  => {P : a -> Type}
+  -> (step : (x : a) -> ((y : a) -> Erased (Smaller y x) -> P y) -> P x)
+  -> (z : a)
+  -> P z
+sizeInd' step z = accInd step z (sizeAccessible' z)
+
 euclid' : (es : EuclidState) -> VerifiedEuclidStep es
-euclid' = sizeInd euclidStep
+euclid' = sizeInd' euclidStep
 
 data Gcd : (d, m, n : Nat) -> Type where
   MkGcd : (d, m, n : Nat) ->
